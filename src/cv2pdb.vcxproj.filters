@@ -19,9 +19,6 @@
     <ClCompile Include="dwarf2pdb.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="dwarflines.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -31,10 +28,13 @@
     <ClCompile Include="PEImage.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="symutil.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="readDwarf.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="symutil.cpp">
+    <ClCompile Include="dwarflines.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -63,5 +63,19 @@
     <ClInclude Include="symutil.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="readDwarf.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dwarf.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dcvinfo.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="cvt80to64.asm">
+      <Filter>Source Files</Filter>
+    </MASM>
   </ItemGroup>
 </Project>
