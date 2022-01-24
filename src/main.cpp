@@ -21,6 +21,8 @@ double
 #define T_strcpy	wcscpy
 #define T_strcat	wcscat
 #define T_strstr	wcsstr
+#define T_strncmp	wcsncmp
+#define T_strtoul	wcstoul
 #define T_strtod	wcstod
 #define T_strrchr	wcsrchr
 #define T_unlink	_wremove
@@ -34,6 +36,8 @@ double
 #define T_strcpy	strcpy
 #define T_strcat	strcat
 #define T_strstr	strstr
+#define T_strncmp	strncmp
+#define T_strtoul	strtoul
 #define T_strtod	strtod
 #define T_strrchr	strrchr
 #define T_unlink	unlink
@@ -57,6 +61,16 @@ void makefullpath(TCHAR* pdbname)
 	TCHAR* pdbstart = pdbname;
 	TCHAR fullname[260];
 	TCHAR* pfullname = fullname;
+
+	if (!pdbname || T_strlen(pdbname) < 2)
+	{
+		return;
+	}
+	// If the path starts with "\\\\", it is considered to be a full path, such as UNC path, VolumeGUID path: "\\\\?\\Volume"
+	if (pdbname[0] == '\\' && pdbname[1] == '\\')
+	{
+		return;
+	}
 
 	int drive = 0;
 	if (pdbname[0] && pdbname[1] == ':')
@@ -120,7 +134,7 @@ int T_main(int argc, TCHAR* argv[])
 {
 	double Dversion = 2.072;
 	const TCHAR* pdbref = 0;
-	bool debug = false;
+	DebugLevel debug = DebugLevel{};
 
 	CoInitialize(nullptr);
 
@@ -138,8 +152,15 @@ int T_main(int argc, TCHAR* argv[])
 			demangleSymbols = false;
 		else if (argv[0][1] == 'e')
 			useTypedefEnum = true;
-		else if (argv[0][1] == 'd' && argv[0][2] == 'e' && argv[0][3] == 'b') // deb[ug]
-			debug = true;
+		else if (!T_strncmp(&argv[0][1], TEXT("debug"), 5)) // debug[level]
+		{
+			debug = (DebugLevel)T_strtoul(&argv[0][6], 0, 0);
+			if (!debug) {
+				debug = DbgBasic;
+			}
+
+			fprintf(stderr, "Debug set to %x\n", debug);
+		}
 		else if (argv[0][1] == 's' && argv[0][2])
 			dotReplacementChar = (char)argv[0][2];
 		else if (argv[0][1] == 'p' && argv[0][2])
@@ -150,7 +171,7 @@ int T_main(int argc, TCHAR* argv[])
 
 	if (argc < 2)
 	{
-		printf("Convert DMD CodeView/DWARF debug information to PDB files, Version %g\n", VERSION);
+		printf("Convert DMD CodeView/DWARF debug information to PDB files, Version %.02f\n", VERSION);
 		printf("Copyright (c) 2009-2012 by Rainer Schuetze, All Rights Reserved\n");
 		printf("\n");
 		printf("License for redistribution is given by the Artistic License 2.0\n");
@@ -182,9 +203,8 @@ int T_main(int argc, TCHAR* argv[])
 		img = &dbg;
 	}
 
-	CV2PDB cv2pdb(*img);
+	CV2PDB cv2pdb(*img, debug);
 	cv2pdb.Dversion = Dversion;
-	cv2pdb.debug = debug;
 	cv2pdb.initLibraries();
 
 	TCHAR* outname = argv[1];

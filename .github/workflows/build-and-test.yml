@@ -1,0 +1,84 @@
+name: build and test cv2pdb
+
+on: [push, pull_request]
+
+env:
+  # Path to the solution file relative to the root of the project.
+  SOLUTION_FILE_PATH: src/cv2pdb.vcxproj
+
+  # Configuration type to build.
+  BUILD_CONFIGURATION: Release
+  BUILD_PLATFORM: x64
+  BUILD_PLATFORM_TOOLSET: v142
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v1.0.2
+      - name: Build cv2pdb
+        working-directory: ${{env.GITHUB_WORKSPACE}}
+        run: msbuild /m /p:PlatformToolset=${{env.BUILD_PLATFORM_TOOLSET}} /p:Platform=${{env.BUILD_PLATFORM}} /p:Configuration=${{env.BUILD_CONFIGURATION}} ${{env.SOLUTION_FILE_PATH}}
+      - name: Build dumplines
+        working-directory: ${{env.GITHUB_WORKSPACE}}
+        run: msbuild /m /p:PlatformToolset=${{env.BUILD_PLATFORM_TOOLSET}} /p:Platform=Win32 /p:Configuration=${{env.BUILD_CONFIGURATION}} src/dumplines.vcxproj
+      - name: Upload bin/
+        uses: actions/upload-artifact@v2
+        with:
+          name: bin
+          path: bin
+  test-with-g4w-sdk:
+    runs-on: windows-latest
+    needs: build
+    steps:
+      - name: Download bin/
+        uses: actions/download-artifact@v2
+        with:
+          name: bin
+          path: bin
+      - uses: git-for-windows/setup-git-for-windows-sdk@v1
+      - name: verify using Git for Windows' GCC
+        shell: bash
+        run: |
+          set -x &&
+          cat >hello.c <<-\EOF &&
+          #include <stdio.h>
+
+          int main(int argc, char **argv)
+          {
+            printf("Hello, world\n");
+            return 0;
+          }
+          EOF
+
+          gcc -g -o hello.exe hello.c &&
+          bin/${{env.BUILD_CONFIGURATION}}*/cv2pdb.exe hello.exe world.exe &&
+
+          ls -l hello* world* &&
+
+          curl -Lo cvdump.exe https://raw.githubusercontent.com/microsoft/microsoft-pdb/HEAD/cvdump/cvdump.exe &&
+          ./cvdump.exe world.pdb >world.cvdump &&
+          grep '^S_PUB32: .*, Flags: 00000000, main$' world.cvdump
+      - name: verify split functions
+        shell: bash
+        run: |
+          set -x &&
+          cat >split.c <<-\EOF &&
+          __attribute__((cold,noinline)) void cold() { volatile int i=0; }
+          __attribute__((dllexport)) void split_func(int i)
+          {
+            if (i)
+              cold();
+          }
+          EOF
+
+          gcc -g -O2 -shared -o split-dwarf.dll split.c &&
+          bin/${{env.BUILD_CONFIGURATION}}*/cv2pdb.exe split-dwarf.dll split-cv.dll &&
+
+          ls -l split-dwarf* split-cv* &&
+
+          curl -Lo cvdump.exe https://raw.githubusercontent.com/microsoft/microsoft-pdb/HEAD/cvdump/cvdump.exe &&
+          ./cvdump.exe split-cv.pdb > split-cv.dump &&
+          awk '$2 == "S_GPROC32:" && $NF == "split_func" { scope=gensub(/,/,"",1,$3); } $2 == "S_SEPCODE:" { getline; if ($4 == scope) found=1; } END {exit !found; }' split-cv.dump
